@@ -20,13 +20,13 @@ namespace HeldInteractions {
         public static ManualLogSource StaticLogger;
         public const string pluginGuid = "tinyresort.dinkum.heldinteractions";
         public const string pluginName = "Held Interactions";
-        public const string pluginVersion = "1.0.0";
+        public const string pluginVersion = "1.0.8";
         public static ConfigEntry<bool> isDebug;
         public static ConfigEntry<int> nexusID;
         public static ConfigEntry<KeyCode> lockInteractionHotkey;
         public static bool lockInteraction;
         public static bool forceClearNotification;
-        
+        public static bool wasCarryingSomething;
 
         public static void Dbgl(string str = "", bool pref = true) {
             if (isDebug.Value) { StaticLogger.LogInfo(str); }
@@ -54,7 +54,6 @@ namespace HeldInteractions {
             MethodInfo makeTopNotification = AccessTools.Method(typeof(NotificationManager), "makeTopNotification");
             MethodInfo makeTopNotificationPrefix = AccessTools.Method(typeof(HeldInteractions), "makeTopNotificationPrefix");
             harmony.Patch(makeTopNotification, new HarmonyMethod(makeTopNotificationPrefix));
-
             harmony.Patch(Update, new HarmonyMethod(UpdatePostfix));
             #endregion
 
@@ -63,6 +62,10 @@ namespace HeldInteractions {
         [HarmonyPostfix]
         public static void UpdatePostfix(CharMovement __instance) {
 
+            if (__instance.myInteract.myEquip && __instance.myInteract.myEquip.currentlyHolding && __instance.myInteract.myEquip.currentlyHolding.itemName.Contains("Shovel")) return;
+
+            //var isCarryingSomething = __instance.myPickUp.isCarryingSomething() || __instance.myEquip.isCarrying();
+            
             ControllerInputActions controls = (ControllerInputActions) AccessTools.Field(typeof(InputMaster), "controls").GetValue(InputMaster.input);
 
             // Checks if the player is making any other kind of input or opening a menu
@@ -76,6 +79,7 @@ namespace HeldInteractions {
             // Allow the player to toggle a lock on interaction so that it continues interacting without input
             if (Input.GetKeyDown(lockInteractionHotkey.Value) && allowLock) {
                 lockInteraction = !lockInteraction;
+                Debug.Log("Setting lock interaction to " + lockInteraction);
                 forceClearNotification = true;
                 NotificationManager.manage.makeTopNotification("Held Interactions", "Locked Interaction is now " + (lockInteraction ? "ENABLED" : "DISABLED"));
             }
