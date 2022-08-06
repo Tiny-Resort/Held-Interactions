@@ -11,51 +11,28 @@ using UnityEngine;
 using HarmonyLib;
 using System.Reflection;
 
-
-namespace HeldInteractions {
+namespace TinyResort {
     
     [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
     public class HeldInteractions : BaseUnityPlugin {
 
-        public static ManualLogSource StaticLogger;
+        public static TRPlugin Plugin;
         public const string pluginGuid = "tinyresort.dinkum.heldinteractions";
         public const string pluginName = "Held Interactions";
         public const string pluginVersion = "1.0.8";
-        public static ConfigEntry<bool> isDebug;
-        public static ConfigEntry<int> nexusID;
+        
         public static ConfigEntry<KeyCode> lockInteractionHotkey;
         public static bool lockInteraction;
-        public static bool forceClearNotification;
         public static bool wasCarryingSomething;
-
-        public static void Dbgl(string str = "", bool pref = true) {
-            if (isDebug.Value) { StaticLogger.LogInfo(str); }
-        }
         
         private void Awake() {
+            
+            Plugin = TRTools.Initialize(this, Logger, 24, pluginGuid, pluginName, pluginVersion);
+            Plugin.QuickPatch(typeof(CharMovement), "Update", typeof(HeldInteractions), "UpdatePostfix");
+            Plugin.QuickPatch(typeof(NotificationManager), "makeTopNotification", typeof(HeldInteractions), "makeTopNotificationPrefix");
 
             // Configuration
-            isDebug = Config.Bind<bool>("General", "DebugMode", false, "If true, the BepinEx console will print out debug messages related to this mod.");
-            nexusID = Config.Bind<int>("General", "NexusID", 24, "Nexus Mod ID. You can find it on the mod's page on nexusmods.com");
             lockInteractionHotkey = Config.Bind<KeyCode>("Keybinds", "LockInteractionHotkey", KeyCode.None, "The hotkey you can press to force interaction to be locked even if you let go of the key. Will be unlocked if you move at all.");
-
-            #region Logging
-            StaticLogger = Logger;
-            BepInExInfoLogInterpolatedStringHandler handler = new BepInExInfoLogInterpolatedStringHandler(18, 1, out var flag);
-            if (flag) { handler.AppendLiteral("Plugin " + pluginGuid + " (v" + pluginVersion + ") loaded!"); }
-            StaticLogger.LogInfo(handler);
-            #endregion
-
-            #region Patching
-            Harmony harmony = new Harmony(pluginGuid);
-
-            MethodInfo Update = AccessTools.Method(typeof(CharMovement), "Update");
-            MethodInfo UpdatePostfix = AccessTools.Method(typeof(HeldInteractions), "UpdatePostfix");
-            MethodInfo makeTopNotification = AccessTools.Method(typeof(NotificationManager), "makeTopNotification");
-            MethodInfo makeTopNotificationPrefix = AccessTools.Method(typeof(HeldInteractions), "makeTopNotificationPrefix");
-            harmony.Patch(makeTopNotification, new HarmonyMethod(makeTopNotificationPrefix));
-            harmony.Patch(Update, new HarmonyMethod(UpdatePostfix));
-            #endregion
 
         }
         
@@ -80,15 +57,13 @@ namespace HeldInteractions {
             if (Input.GetKeyDown(lockInteractionHotkey.Value) && allowLock) {
                 lockInteraction = !lockInteraction;
                 Debug.Log("Setting lock interaction to " + lockInteraction);
-                forceClearNotification = true;
-                NotificationManager.manage.makeTopNotification("Held Interactions", "Locked Interaction is now " + (lockInteraction ? "ENABLED" : "DISABLED"));
+                TRTools.TopNotification("Held Interactions", "Locked Interaction is now " + (lockInteraction ? "ENABLED" : "DISABLED"));
             }
 
             // Disables the interaction lock if the player did something incompatible
             if (lockInteraction && !allowLock) {
                 lockInteraction = false;
-                forceClearNotification = true;
-                NotificationManager.manage.makeTopNotification("Held Interactions", "Locked Interaction was interrupted by other inputs");
+                TRTools.TopNotification("Held Interactions", "Locked Interaction was interrupted by other inputs");
             }
             
             // If the player is holding down the interaction key OR has an interaction lock on, keep trying to place items in a machine
@@ -98,44 +73,6 @@ namespace HeldInteractions {
                 __instance.myPickUp.pressX();
             }
 
-        }
-
-        // Forcibly clears the top notification so that it can be replaced immediately
-        [HarmonyPrefix]
-        public static bool makeTopNotificationPrefix(NotificationManager __instance) {
-            
-            if (forceClearNotification) {
-                forceClearNotification = false;
-                
-                var toNotify = (List<string>)AccessTools.Field(typeof(NotificationManager), "toNotify").GetValue(__instance);
-                var subTextNot = (List<string>)AccessTools.Field(typeof(NotificationManager), "subTextNot").GetValue(__instance);
-                var soundToPlay = (List<ASound>)AccessTools.Field(typeof(NotificationManager), "soundToPlay").GetValue(__instance);
-                var topNotificationRunning = AccessTools.Field(typeof(NotificationManager), "topNotificationRunning");
-                var topNotificationRunningRoutine = topNotificationRunning.GetValue(__instance);
-                
-                // Clears existing notifications in the queue
-                toNotify.Clear();
-                subTextNot.Clear();
-                soundToPlay.Clear();
-
-                // Stops the current coroutine from continuing
-                if (topNotificationRunningRoutine != null) {
-                    __instance.StopCoroutine((Coroutine) topNotificationRunningRoutine);
-                    topNotificationRunning.SetValue(__instance, null);
-                }
-                
-                // Resets all animations related to the notificatin bubble appearing/disappearing
-                __instance.StopCoroutine("closeWithMask");
-                __instance.topNotification.StopAllCoroutines();
-                var Anim = __instance.topNotification.GetComponent<WindowAnimator>();
-                Anim.StopAllCoroutines();
-                Anim.maskChild.enabled = false;
-                Anim.contents.gameObject.SetActive(false);
-                Anim.gameObject.SetActive(false);
-                
-                return true;
-                
-            } else return true;
         }
 
     }
