@@ -29,7 +29,6 @@ namespace TinyResort {
             
             Plugin = TRTools.Initialize(this, Logger, 24, pluginGuid, pluginName, pluginVersion);
             Plugin.QuickPatch(typeof(CharMovement), "Update", typeof(HeldInteractions), "UpdatePostfix");
-            Plugin.QuickPatch(typeof(NotificationManager), "makeTopNotification", typeof(HeldInteractions), "makeTopNotificationPrefix");
 
             // Configuration
             lockInteractionHotkey = Config.Bind<KeyCode>("Keybinds", "LockInteractionHotkey", KeyCode.None, "The hotkey you can press to force interaction to be locked even if you let go of the key. Will be unlocked if you move at all.");
