@@ -19,7 +19,7 @@ namespace TinyResort {
         public static TRPlugin Plugin;
         public const string pluginGuid = "tinyresort.dinkum.heldinteractions";
         public const string pluginName = "Held Interactions";
-        public const string pluginVersion = "1.0.8";
+        public const string pluginVersion = "1.0.9";
         
         public static ConfigEntry<KeyCode> lockInteractionHotkey;
         public static bool lockInteraction;
@@ -27,7 +27,7 @@ namespace TinyResort {
         
         private void Awake() {
             
-            Plugin = TRTools.Initialize(this, Logger, 24, pluginGuid, pluginName, pluginVersion);
+            Plugin = TRTools.Initialize(this, 24); 
             Plugin.QuickPatch(typeof(CharMovement), "Update", typeof(HeldInteractions), "UpdatePostfix");
 
             // Configuration
